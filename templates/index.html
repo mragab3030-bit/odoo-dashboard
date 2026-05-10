@@ -109,6 +109,12 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
       <th>Invoice #</th><th>Customer</th><th>Issue Date</th><th>Due Date</th><th>Amount</th><th>Outstanding</th><th>Status</th>
     </tr></thead><tbody id="tableBody"><tr><td colspan="7" class="loading">Loading invoices...</td></tr></tbody></table></div>
   </div>
+  <div class="section">
+    <div class="section-title">Revenue by Analytic Account</div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>Analytic Account</th><th>Invoiced Amount</th><th>% of Total</th><th>Lines</th>
+    </tr></thead><tbody id="analyticBody"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody></table></div>
+  </div>
 </div>
 <script>
 var API = '';
@@ -288,8 +294,24 @@ function loadCompanies() {
   }).catch(function(e) { console.error('Companies error', e); });
 }
 
+function loadAnalytic() {
+  return fetch(API + '/api/analytic' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.length) {
+      document.getElementById('analyticBody').innerHTML = '<tr><td colspan="4" class="loading">No analytic data found</td></tr>';
+      return;
+    }
+    var total = data.reduce(function(s, r) { return s + r.amount; }, 0);
+    document.getElementById('analyticBody').innerHTML = data.map(function(r) {
+      var pct = total > 0 ? (r.amount / total * 100).toFixed(1) : '0.0';
+      return '<tr><td>' + r.analytic + '</td><td class="amount">' + fmt(r.amount) + '</td><td>' + pct + '%</td><td style="color:#9ca3af">' + r.count + '</td></tr>';
+    }).join('');
+  }).catch(function(e) {
+    document.getElementById('analyticBody').innerHTML = '<tr><td colspan="4" class="error">Failed to load analytic data</td></tr>';
+  });
+}
+
 function loadAll() {
-  Promise.all([loadSummary(), loadAging(), loadInvoices()]);
+  Promise.all([loadSummary(), loadAging(), loadInvoices(), loadAnalytic()]);
 }
 
 loadCompanies().then(function() { loadAll(); });

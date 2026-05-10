@@ -130,6 +130,56 @@ def get_aging():
         {"label":"61+ days",   "amount":round(b3,2),"count":c3},
     ])
 
+@app.route("/api/analytic")
+def get_analytic():
+    uid = get_uid()
+    if not uid:
+        return jsonify({"error": "Auth failed"}), 401
+    domain = [
+        ["move_id.move_type","=","out_invoice"],
+        ["move_id.state","=","posted"],
+        ["display_type","not in",["line_section","line_note"]],
+        ["analytic_distribution","!=",False]
+    ]
+    company_id = request.args.get("company_id")
+    if company_id:
+        domain.append(["company_id","=",int(company_id)])
+    lines = odoo_call(uid, "account.move.line", "search_read",
+        [domain],
+        {"fields":["analytic_distribution","price_subtotal"]}
+    )
+    # collect all analytic account ids
+    acc_ids = set()
+    for line in lines:
+        if line.get("analytic_distribution"):
+            for aid in line["analytic_distribution"].keys():
+                acc_ids.add(int(aid))
+    # fetch names
+    acc_names = {}
+    if acc_ids:
+        accounts = odoo_call(uid, "account.analytic.account", "search_read",
+            [[["id","in",list(acc_ids)]]],
+            {"fields":["id","name"]}
+        )
+        acc_names = {a["id"]: a["name"] for a in accounts}
+    # aggregate
+    totals = {}
+    for line in lines:
+        dist = line.get("analytic_distribution") or {}
+        amount = line.get("price_subtotal") or 0
+        for aid_str, pct in dist.items():
+            aid = int(aid_str)
+            share = amount * pct / 100
+            name = acc_names.get(aid, "Unknown (%s)" % aid)
+            if name not in totals:
+                totals[name] = {"amount": 0, "count": 0}
+            totals[name]["amount"] += share
+            totals[name]["count"] += 1
+    result = [{"analytic": k, "amount": round(v["amount"], 2), "count": v["count"]}
+              for k, v in totals.items()]
+    result.sort(key=lambda x: -x["amount"])
+    return jsonify(result)
+
 @app.route("/api/export/pdf")
 def export_pdf():
     uid = get_uid()
