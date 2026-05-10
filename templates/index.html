@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:#f5f6f8;color:#1a1d23;min-height:100vh}
+.app{max-width:1200px;margin:0 auto;padding:28px 24px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px}
+.header-title{font-size:22px;font-weight:700;letter-spacing:-0.3px}
+.header-sub{font-size:13px;color:#6b7280;margin-top:3px}
+.refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e8eaed;border-radius:8px;background:#fff;font-size:13px;color:#6b7280;cursor:pointer;font-family:inherit}
+.refresh-btn:hover{border-color:#1e40af;color:#1e40af}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.kpi-card{background:#fff;border:1px solid #e8eaed;border-radius:12px;padding:20px;display:flex;align-items:flex-start;gap:14px}
+.kpi-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.07)}
+.kpi-icon{width:38px;height:38px;background:#f1f3f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.kpi-label{font-size:11px;font-weight:600;color:#9ca3af;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px}
+.kpi-value{font-size:20px;font-weight:700;letter-spacing:-0.5px;font-family:'IBM Plex Mono',monospace}
+.kpi-sub{font-size:12px;color:#6b7280;margin-top:3px}
+.default{color:#1a1d23}.green{color:#16a34a}.orange{color:#d97706}.red{color:#dc2626}
+.section{background:#fff;border:1px solid #e8eaed;border-radius:12px;padding:22px;margin-bottom:20px}
+.section-title{font-size:15px;font-weight:600;margin-bottom:18px}
+.aging-row{margin-bottom:14px}
+.aging-header{display:flex;justify-content:space-between;margin-bottom:6px}
+.aging-label{font-size:13px;color:#6b7280}
+.aging-amount{font-size:13px;font-weight:600}
+.aging-count{color:#9ca3af;font-weight:400}
+.bar-track{height:7px;background:#f1f3f9;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.bar-yellow{background:#f59e0b}.bar-orange{background:#ea580c}.bar-red{background:#dc2626}
+.filters-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.filter-select{padding:8px 30px 8px 12px;border:1px solid #e8eaed;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;appearance:none;min-width:160px}
+.date-group{display:flex;align-items:center;gap:8px}
+.date-label{font-size:13px;color:#6b7280}
+.date-input{padding:8px 12px;border:1px solid #e8eaed;border-radius:8px;font-size:13px;font-family:inherit}
+.actions-row{display:flex;align-items:center;gap:8px}
+.clear-btn{font-size:13px;color:#1e40af;background:none;border:none;cursor:pointer;font-family:inherit;padding:8px 4px}
+.export-excel-btn{font-size:13px;color:#fff;background:#16a34a;border:none;border-radius:8px;cursor:pointer;font-family:inherit;padding:8px 14px;font-weight:500}
+.export-excel-btn:hover{background:#15803d}.export-pdf-btn{font-size:13px;color:#fff;background:#dc2626;border:none;border-radius:8px;cursor:pointer;font-family:inherit;padding:8px 14px;font-weight:500}.export-pdf-btn:hover{background:#b91c1c}
+.results-count{font-size:13px;color:#6b7280;padding-top:4px}
+.table-wrap{overflow-x:auto;margin-top:16px}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;border-bottom:1px solid #e8eaed}
+tbody tr{border-bottom:1px solid #f3f4f6;transition:background .1s}
+tbody tr:hover{background:#fafbfc}
+tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
+.inv-num{font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:13px}
+.date-cell{color:#6b7280;font-size:13px}
+.amount{font-weight:600}
+.outstanding-red{color:#dc2626;font-weight:600}
+.outstanding-dash{color:#9ca3af}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-paid{background:#dcfce7;color:#15803d}
+.badge-overdue{background:#fee2e2;color:#dc2626}
+.badge-partial{background:#fef3c7;color:#d97706}
+.badge-outstanding{background:#dbeafe;color:#1d4ed8}
+.loading{text-align:center;padding:40px;color:#9ca3af;font-size:14px}
+.error{text-align:center;padding:20px;color:#dc2626;font-size:14px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.kpi-grid{grid-template-columns:1fr}.app{padding:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="header-title">Invoice Dashboard</div>
+      <div class="header-sub">Live data from Odoo</div>
+    </div>
+    <button class="refresh-btn" onclick="loadAll()">&#x21BB; Refresh</button>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-icon">&#128196;</div><div><div class="kpi-label">Total Invoiced</div><div class="kpi-value default" id="kpi-total">...</div><div class="kpi-sub" id="kpi-count">loading</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon">&#9989;</div><div><div class="kpi-label">Total Paid</div><div class="kpi-value green" id="kpi-paid">...</div><div class="kpi-sub">Fully settled</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon">&#128336;</div><div><div class="kpi-label">Outstanding</div><div class="kpi-value orange" id="kpi-outstanding">...</div><div class="kpi-sub">Awaiting payment</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon">&#9888;</div><div><div class="kpi-label">Overdue</div><div class="kpi-value red" id="kpi-overdue">...</div><div class="kpi-sub" id="kpi-overdue-count">loading</div></div></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Overdue Aging Analysis</div>
+    <div id="aging-content"><div class="loading">Loading aging data...</div></div>
+  </div>
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:0">All Invoices</div>
+      <div class="actions-row">
+        <button class="clear-btn" onclick="clearFilters()">Clear filters</button>
+        <button class="export-excel-btn" onclick="exportExcel()">&#11015; Export Excel</button><button class="export-pdf-btn" onclick="exportPDF()">&#11015; Export PDF</button>
+      </div>
+    </div>
+    <div class="filters-row">
+      <select class="filter-select" id="customerFilter" onchange="filterTable()"><option value="">All Customers</option></select>
+      <select class="filter-select" id="statusFilter" onchange="filterTable()">
+        <option value="">All Statuses</option>
+        <option>Overdue</option><option>Paid</option><option>Partial</option><option>Outstanding</option>
+      </select>
+      <div class="date-group"><span class="date-label">From</span><input type="date" class="date-input" id="fromDate" onchange="filterTable()"></div>
+      <div class="date-group"><span class="date-label">To</span><input type="date" class="date-input" id="toDate" onchange="filterTable()"></div>
+    </div>
+    <div class="results-count" id="resultsCount">Loading...</div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>Invoice #</th><th>Customer</th><th>Issue Date</th><th>Due Date</th><th>Amount</th><th>Outstanding</th><th>Status</th>
+    </tr></thead><tbody id="tableBody"><tr><td colspan="7" class="loading">Loading invoices...</td></tr></tbody></table></div>
+  </div>
+</div>
+<script>
+var API = 'http://127.0.0.1:5000';
+var allInvoices = [];
+
+function fmt(n) {
+  return 'SAR ' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function getStatus(inv) {
+  if (inv.payment_state === 'paid') return 'Paid';
+  if (inv.payment_state === 'partial') return 'Partial';
+  var today = new Date().toISOString().split('T')[0];
+  if (inv.due && inv.due < today && inv.outstanding > 0) return 'Overdue';
+  return 'Outstanding';
+}
+
+function badgeClass(s) {
+  if (s === 'Paid') return 'badge badge-paid';
+  if (s === 'Overdue') return 'badge badge-overdue';
+  if (s === 'Partial') return 'badge badge-partial';
+  return 'badge badge-outstanding';
+}
+
+function populateCustomers() {
+  var sel = document.getElementById('customerFilter');
+  var names = [];
+  var seen = {};
+  allInvoices.forEach(function(i) {
+    if (!seen[i.customer]) { seen[i.customer] = true; names.push(i.customer); }
+  });
+  names.sort();
+  sel.innerHTML = '<option value="">All Customers</option>' + names.map(function(n) { return '<option>' + n + '</option>'; }).join('');
+}
+
+function setDefaultDates() {
+  if (!allInvoices.length) return;
+  var dates = allInvoices.map(function(i) { return i.issue; }).filter(function(d) { return d !== '-'; }).sort();
+  document.getElementById('fromDate').value = dates[0];
+  document.getElementById('toDate').value = new Date().toISOString().split('T')[0];
+}
+
+function filterTable() {
+  var cust = document.getElementById('customerFilter').value;
+  var stat = document.getElementById('statusFilter').value;
+  var from = document.getElementById('fromDate').value;
+  var to = document.getElementById('toDate').value;
+  var filtered = allInvoices.filter(function(i) {
+    if (cust && i.customer !== cust) return false;
+    if (stat && getStatus(i) !== stat) return false;
+    if (from && i.issue < from) return false;
+    if (to && i.issue > to) return false;
+    return true;
+  });
+  renderTable(filtered);
+}
+
+function renderTable(data) {
+  document.getElementById('resultsCount').textContent = data.length + ' invoices found';
+  if (!data.length) {
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" class="loading">No invoices found</td></tr>';
+    return;
+  }
+  document.getElementById('tableBody').innerHTML = data.map(function(r) {
+    var s = getStatus(r);
+    var out = r.outstanding > 0 ? '<span class="outstanding-red">' + fmt(r.outstanding) + '</span>' : '<span class="outstanding-dash">-</span>';
+    return '<tr><td><span class="inv-num">' + r.inv + '</span></td><td>' + r.customer + '</td><td class="date-cell">' + r.issue + '</td><td class="date-cell">' + r.due + '</td><td class="amount">' + fmt(r.amount) + '</td><td>' + out + '</td><td><span class="' + badgeClass(s) + '">' + s + '</span></td></tr>';
+  }).join('');
+}
+
+function clearFilters() {
+  document.getElementById('customerFilter').value = '';
+  document.getElementById('statusFilter').value = '';
+  setDefaultDates();
+  filterTable();
+}
+
+function exportExcel() {
+  var today = new Date().toISOString().split('T')[0];
+  var rows = [['Invoice #','Customer','Issue Date','Due Date','Amount','Outstanding','Status']];
+  allInvoices.forEach(function(r) {
+    rows.push([r.inv, r.customer, r.issue, r.due, r.amount, r.outstanding, getStatus(r)]);
+  });
+  var csv = rows.map(function(r) {
+    return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'invoices_' + today + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadSummary() {
+  return fetch(API + '/api/summary').then(function(r) { return r.json(); }).then(function(d) {
+    document.getElementById('kpi-total').textContent = fmt(d.total_invoiced);
+    document.getElementById('kpi-count').textContent = d.total_invoices + ' invoices';
+    document.getElementById('kpi-paid').textContent = fmt(d.total_paid);
+    document.getElementById('kpi-outstanding').textContent = fmt(d.outstanding);
+    document.getElementById('kpi-overdue').textContent = fmt(d.overdue);
+    document.getElementById('kpi-overdue-count').textContent = d.overdue_count + ' invoices';
+  }).catch(function(e) { console.error('Summary error', e); });
+}
+
+function loadAging() {
+  return fetch(API + '/api/aging').then(function(r) { return r.json(); }).then(function(data) {
+    var max = Math.max.apply(null, data.map(function(d) { return d.amount; }));
+    var colors = ['bar-yellow','bar-orange','bar-red'];
+    var html = '';
+    data.forEach(function(d, i) {
+      var pct = max > 0 ? (d.amount / max * 100).toFixed(1) : 0;
+      html += '<div class="aging-row"><div class="aging-header"><span class="aging-label">' + d.label + '</span><span class="aging-amount">' + fmt(d.amount) + ' <span class="aging-count">(' + d.count + ')</span></span></div><div class="bar-track"><div class="bar-fill ' + colors[i] + '" style="width:0%" data-pct="' + pct + '"></div></div></div>';
+    });
+    document.getElementById('aging-content').innerHTML = html;
+    setTimeout(function() {
+      document.querySelectorAll('.bar-fill').forEach(function(b) { b.style.width = b.dataset.pct + '%'; });
+    }, 100);
+  }).catch(function(e) {
+    document.getElementById('aging-content').innerHTML = '<div class="error">Failed to load aging</div>';
+  });
+}
+
+function loadInvoices() {
+  return fetch(API + '/api/invoices').then(function(r) { return r.json(); }).then(function(data) {
+    allInvoices = data.map(function(i) {
+      return {
+        inv: i.name,
+        customer: i.partner_id ? i.partner_id[1] : '-',
+        issue: i.invoice_date || '-',
+        due: i.invoice_date_due || '-',
+        amount: i.amount_total,
+        outstanding: i.amount_residual,
+        payment_state: i.payment_state
+      };
+    });
+    populateCustomers();
+    setDefaultDates();
+    filterTable();
+  }).catch(function(e) {
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" class="error">Failed to load invoices</td></tr>';
+  });
+}
+
+function exportPDF() {
+  window.open('http://127.0.0.1:5000/api/export/pdf', '_blank');
+}
+function loadAll() {
+  Promise.all([loadSummary(), loadAging(), loadInvoices()]);
+}
+
+loadAll();
+</script>
+</body>
+</html>
