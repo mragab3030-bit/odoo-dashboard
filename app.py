@@ -78,7 +78,7 @@ def get_invoices():
     invoices = odoo_call(uid, "account.move", "search_read",
         [[["move_type","=","out_invoice"],["state","=","posted"]]],
         {"fields":["name","partner_id","invoice_date","invoice_date_due",
-                   "amount_total","amount_residual","payment_state"],
+                   "amount_total","amount_residual","payment_state","invoice_user_id"],
          "limit":1000, "order":"invoice_date desc"}
     )
     return jsonify(invoices or [])

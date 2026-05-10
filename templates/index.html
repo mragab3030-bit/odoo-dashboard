@@ -93,6 +93,7 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
     </div>
     <div class="filters-row">
       <select class="filter-select" id="customerFilter" onchange="filterTable()"><option value="">All Customers</option></select>
+      <select class="filter-select" id="createdByFilter" onchange="filterTable()"><option value="">All Users</option></select>
       <select class="filter-select" id="statusFilter" onchange="filterTable()">
         <option value="">All Statuses</option>
         <option>Overdue</option><option>Paid</option><option>Partial</option><option>Outstanding</option>
@@ -140,6 +141,17 @@ function populateCustomers() {
   sel.innerHTML = '<option value="">All Customers</option>' + names.map(function(n) { return '<option>' + n + '</option>'; }).join('');
 }
 
+function populateCreatedBy() {
+  var sel = document.getElementById('createdByFilter');
+  var users = [];
+  var seen = {};
+  allInvoices.forEach(function(i) {
+    if (i.createdBy && !seen[i.createdBy]) { seen[i.createdBy] = true; users.push(i.createdBy); }
+  });
+  users.sort();
+  sel.innerHTML = '<option value="">All Users</option>' + users.map(function(u) { return '<option>' + u + '</option>'; }).join('');
+}
+
 function setDefaultDates() {
   if (!allInvoices.length) return;
   var dates = allInvoices.map(function(i) { return i.issue; }).filter(function(d) { return d !== '-'; }).sort();
@@ -149,11 +161,13 @@ function setDefaultDates() {
 
 function filterTable() {
   var cust = document.getElementById('customerFilter').value;
+  var user = document.getElementById('createdByFilter').value;
   var stat = document.getElementById('statusFilter').value;
   var from = document.getElementById('fromDate').value;
   var to = document.getElementById('toDate').value;
   var filtered = allInvoices.filter(function(i) {
     if (cust && i.customer !== cust) return false;
+    if (user && i.createdBy !== user) return false;
     if (stat && getStatus(i) !== stat) return false;
     if (from && i.issue < from) return false;
     if (to && i.issue > to) return false;
@@ -177,6 +191,7 @@ function renderTable(data) {
 
 function clearFilters() {
   document.getElementById('customerFilter').value = '';
+  document.getElementById('createdByFilter').value = '';
   document.getElementById('statusFilter').value = '';
   setDefaultDates();
   filterTable();
@@ -235,6 +250,7 @@ function loadInvoices() {
       return {
         inv: i.name,
         customer: i.partner_id ? i.partner_id[1] : '-',
+        createdBy: i.invoice_user_id ? i.invoice_user_id[1] : '-',
         issue: i.invoice_date || '-',
         due: i.invoice_date_due || '-',
         amount: i.amount_total,
@@ -243,6 +259,7 @@ function loadInvoices() {
       };
     });
     populateCustomers();
+    populateCreatedBy();
     setDefaultDates();
     filterTable();
   }).catch(function(e) {
