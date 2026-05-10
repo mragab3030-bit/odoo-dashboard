@@ -92,6 +92,7 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
       </div>
     </div>
     <div class="filters-row">
+      <select class="filter-select" id="companyFilter" onchange="filterTable()"><option value="">All Companies</option></select>
       <select class="filter-select" id="customerFilter" onchange="filterTable()"><option value="">All Customers</option></select>
       <select class="filter-select" id="createdByFilter" onchange="filterTable()"><option value="">All Users</option></select>
       <select class="filter-select" id="statusFilter" onchange="filterTable()">
@@ -141,6 +142,17 @@ function populateCustomers() {
   sel.innerHTML = '<option value="">All Customers</option>' + names.map(function(n) { return '<option>' + n + '</option>'; }).join('');
 }
 
+function populateCompanies() {
+  var sel = document.getElementById('companyFilter');
+  var companies = [];
+  var seen = {};
+  allInvoices.forEach(function(i) {
+    if (i.company && !seen[i.company]) { seen[i.company] = true; companies.push(i.company); }
+  });
+  companies.sort();
+  sel.innerHTML = '<option value="">All Companies</option>' + companies.map(function(c) { return '<option>' + c + '</option>'; }).join('');
+}
+
 function populateCreatedBy() {
   var sel = document.getElementById('createdByFilter');
   var users = [];
@@ -160,12 +172,14 @@ function setDefaultDates() {
 }
 
 function filterTable() {
+  var company = document.getElementById('companyFilter').value;
   var cust = document.getElementById('customerFilter').value;
   var user = document.getElementById('createdByFilter').value;
   var stat = document.getElementById('statusFilter').value;
   var from = document.getElementById('fromDate').value;
   var to = document.getElementById('toDate').value;
   var filtered = allInvoices.filter(function(i) {
+    if (company && i.company !== company) return false;
     if (cust && i.customer !== cust) return false;
     if (user && i.createdBy !== user) return false;
     if (stat && getStatus(i) !== stat) return false;
@@ -190,6 +204,7 @@ function renderTable(data) {
 }
 
 function clearFilters() {
+  document.getElementById('companyFilter').value = '';
   document.getElementById('customerFilter').value = '';
   document.getElementById('createdByFilter').value = '';
   document.getElementById('statusFilter').value = '';
@@ -249,6 +264,7 @@ function loadInvoices() {
     allInvoices = data.map(function(i) {
       return {
         inv: i.name,
+        company: i.company_id ? i.company_id[1] : '-',
         customer: i.partner_id ? i.partner_id[1] : '-',
         createdBy: i.invoice_user_id ? i.invoice_user_id[1] : '-',
         issue: i.invoice_date || '-',
@@ -258,6 +274,7 @@ function loadInvoices() {
         payment_state: i.payment_state
       };
     });
+    populateCompanies();
     populateCustomers();
     populateCreatedBy();
     setDefaultDates();
