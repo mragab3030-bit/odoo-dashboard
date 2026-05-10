@@ -97,7 +97,7 @@ def get_invoices():
         domain.append(["company_id","=",int(company_id)])
     invoices = odoo_call(uid, "account.move", "search_read",
         [domain],
-        {"fields":["name","partner_id","invoice_date","invoice_date_due",
+        {"fields":["id","name","partner_id","invoice_date","invoice_date_due",
                    "amount_total","amount_residual","payment_state","invoice_user_id","company_id"],
          "limit":1000, "order":"invoice_date desc"}
     )

@@ -45,8 +45,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:#d3d3d3;color:#1a1d23;min
 .table-wrap{overflow-x:auto;margin-top:16px}
 table{width:100%;border-collapse:collapse}
 thead th{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;border-bottom:1px solid #e8eaed}
-tbody tr{border-bottom:1px solid #f3f4f6;transition:background .1s}
-tbody tr:hover{background:#fafbfc}
+tbody tr{border-bottom:1px solid #f3f4f6;transition:background .1s;cursor:pointer}
+tbody tr:hover{background:#eff6ff}
 tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
 .inv-num{font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:13px}
 .date-cell{color:#6b7280;font-size:13px}
@@ -213,7 +213,8 @@ function renderTable(data) {
   document.getElementById('tableBody').innerHTML = data.map(function(r) {
     var s = getStatus(r);
     var out = r.outstanding > 0 ? '<span class="outstanding-red">' + fmt(r.outstanding) + '</span>' : '<span class="outstanding-dash">-</span>';
-    return '<tr><td><span class="inv-num">' + r.inv + '</span></td><td>' + r.customer + '</td><td class="date-cell">' + r.issue + '</td><td class="date-cell">' + r.due + '</td><td class="amount">' + fmt(r.amount) + '</td><td>' + out + '</td><td><span class="' + badgeClass(s) + '">' + s + '</span></td></tr>';
+    var url = 'https://success-creator.odoo.com/odoo/accounting/customer-invoices/' + r.id;
+    return '<tr onclick="window.open(\'' + url + '\',\'_blank\')"><td><span class="inv-num">' + r.inv + '</span></td><td>' + r.customer + '</td><td class="date-cell">' + r.issue + '</td><td class="date-cell">' + r.due + '</td><td class="amount">' + fmt(r.amount) + '</td><td>' + out + '</td><td><span class="' + badgeClass(s) + '">' + s + '</span></td></tr>';
   }).join('');
 }
 
@@ -276,6 +277,7 @@ function loadInvoices() {
   return fetch(API + '/api/invoices' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(data) {
     allInvoices = data.map(function(i) {
       return {
+        id: i.id,
         inv: i.name,
         company: i.company_id ? i.company_id[1] : '-',
         customer: i.partner_id ? i.partner_id[1] : '-',
