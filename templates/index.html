@@ -60,7 +60,17 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
 .badge-outstanding{background:#dbeafe;color:#1d4ed8}
 .loading{text-align:center;padding:40px;color:#9ca3af;font-size:14px}
 .error{text-align:center;padding:20px;color:#dc2626;font-size:14px}
-@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.analytic-overview{background:#fff;border:1px solid #e8eaed;border-radius:12px;padding:20px;margin-bottom:20px}
+.analytic-overview:hover{box-shadow:0 4px 16px rgba(0,0,0,.07)}
+.analytic-bar-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px}
+.analytic-bar-item{display:flex;flex-direction:column;gap:8px}
+.analytic-bar-name{font-size:11px;font-weight:600;color:#6b7280;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analytic-bar-value{font-size:17px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:-0.5px}
+.analytic-bar-pct{font-size:12px;color:#9ca3af;margin-top:-4px}
+.analytic-track{height:8px;background:#f1f3f9;border-radius:4px;overflow:hidden;margin-top:4px}
+.analytic-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.ac-color-0{background:#1e40af}.ac-color-1{background:#7c3aed}.ac-color-2{background:#0891b2}.ac-color-3{background:#059669}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.analytic-bar-row{grid-template-columns:1fr 1fr}}
 @media(max-width:500px){.kpi-grid{grid-template-columns:1fr}.app{padding:16px}}
 </style>
 </head>
@@ -81,6 +91,10 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
     <div class="kpi-card"><div class="kpi-icon">&#9989;</div><div><div class="kpi-label">Total Paid</div><div class="kpi-value green" id="kpi-paid">...</div><div class="kpi-sub">Fully settled</div></div></div>
     <div class="kpi-card"><div class="kpi-icon">&#128336;</div><div><div class="kpi-label">Outstanding</div><div class="kpi-value orange" id="kpi-outstanding">...</div><div class="kpi-sub">Awaiting payment</div></div></div>
     <div class="kpi-card"><div class="kpi-icon">&#9888;</div><div><div class="kpi-label">Overdue</div><div class="kpi-value red" id="kpi-overdue">...</div><div class="kpi-sub" id="kpi-overdue-count">loading</div></div></div>
+  </div>
+  <div class="analytic-overview">
+    <div class="section-title" style="margin-bottom:16px">Top Analytic Accounts</div>
+    <div class="analytic-bar-row" id="analyticOverview"><div class="loading" style="padding:16px;grid-column:1/-1">Loading...</div></div>
   </div>
   <div class="section">
     <div class="section-title">Overdue Aging Analysis</div>
@@ -296,8 +310,10 @@ function loadCompanies() {
 
 function loadAnalytic() {
   return fetch(API + '/api/analytic' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(data) {
+    // populate full table
     if (!data.length) {
       document.getElementById('analyticBody').innerHTML = '<tr><td colspan="4" class="loading">No analytic data found</td></tr>';
+      document.getElementById('analyticOverview').innerHTML = '<div style="color:#9ca3af;font-size:13px;grid-column:1/-1">No analytic data found</div>';
       return;
     }
     var total = data.reduce(function(s, r) { return s + r.amount; }, 0);
@@ -305,8 +321,25 @@ function loadAnalytic() {
       var pct = total > 0 ? (r.amount / total * 100).toFixed(1) : '0.0';
       return '<tr><td>' + r.analytic + '</td><td class="amount">' + fmt(r.amount) + '</td><td>' + pct + '%</td><td style="color:#9ca3af">' + r.count + '</td></tr>';
     }).join('');
+    // populate top-4 overview card
+    var top4 = data.slice(0, 4);
+    var maxAmt = top4[0].amount;
+    document.getElementById('analyticOverview').innerHTML = top4.map(function(r, i) {
+      var pct = total > 0 ? (r.amount / total * 100).toFixed(1) : '0.0';
+      var barW = maxAmt > 0 ? (r.amount / maxAmt * 100).toFixed(1) : 0;
+      return '<div class="analytic-bar-item">' +
+        '<div class="analytic-bar-name" title="' + r.analytic + '">' + r.analytic + '</div>' +
+        '<div class="analytic-bar-value ac-color-' + i + '">' + fmt(r.amount) + '</div>' +
+        '<div class="analytic-bar-pct">' + pct + '% of total</div>' +
+        '<div class="analytic-track"><div class="analytic-fill ac-color-' + i + '" style="width:0%" data-w="' + barW + '"></div></div>' +
+        '</div>';
+    }).join('');
+    setTimeout(function() {
+      document.querySelectorAll('.analytic-fill').forEach(function(el) { el.style.width = el.dataset.w + '%'; });
+    }, 100);
   }).catch(function(e) {
     document.getElementById('analyticBody').innerHTML = '<tr><td colspan="4" class="error">Failed to load analytic data</td></tr>';
+    document.getElementById('analyticOverview').innerHTML = '<div style="color:#dc2626;font-size:13px;grid-column:1/-1">Failed to load</div>';
   });
 }
 
