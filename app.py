@@ -4,6 +4,7 @@ import xmlrpc.client
 from datetime import date, datetime
 from io import BytesIO
 import os
+import json
 import arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import A4, landscape
@@ -139,38 +140,53 @@ def get_analytic():
         ["move_id.move_type","=","out_invoice"],
         ["move_id.state","=","posted"],
         ["display_type","not in",["line_section","line_note"]],
-        ["analytic_distribution","!=",False]
     ]
     company_id = request.args.get("company_id")
     if company_id:
         domain.append(["company_id","=",int(company_id)])
     lines = odoo_call(uid, "account.move.line", "search_read",
         [domain],
-        {"fields":["analytic_distribution","price_subtotal"]}
+        {"fields":["analytic_distribution","price_subtotal"], "limit": 5000}
     )
-    # collect all analytic account ids
+    # collect all analytic account ids — handle both dict and JSON string
     acc_ids = set()
     for line in lines:
-        if line.get("analytic_distribution"):
-            for aid in line["analytic_distribution"].keys():
+        raw = line.get("analytic_distribution")
+        if not raw:
+            continue
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except Exception:
+                continue
+            line["analytic_distribution"] = raw
+        for aid in raw.keys():
+            try:
                 acc_ids.add(int(aid))
+            except Exception:
+                pass
+    if not acc_ids:
+        return jsonify([])
     # fetch names
-    acc_names = {}
-    if acc_ids:
-        accounts = odoo_call(uid, "account.analytic.account", "search_read",
-            [[["id","in",list(acc_ids)]]],
-            {"fields":["id","name"]}
-        )
-        acc_names = {a["id"]: a["name"] for a in accounts}
+    accounts = odoo_call(uid, "account.analytic.account", "search_read",
+        [[["id","in",list(acc_ids)]]],
+        {"fields":["id","name"]}
+    )
+    acc_names = {a["id"]: a["name"] for a in accounts}
     # aggregate
     totals = {}
     for line in lines:
         dist = line.get("analytic_distribution") or {}
+        if not dist:
+            continue
         amount = line.get("price_subtotal") or 0
         for aid_str, pct in dist.items():
-            aid = int(aid_str)
-            share = amount * pct / 100
-            name = acc_names.get(aid, "Unknown (%s)" % aid)
+            try:
+                aid = int(aid_str)
+                share = amount * float(pct) / 100
+            except Exception:
+                continue
+            name = acc_names.get(aid, "ID:%s" % aid_str)
             if name not in totals:
                 totals[name] = {"amount": 0, "count": 0}
             totals[name]["amount"] += share
