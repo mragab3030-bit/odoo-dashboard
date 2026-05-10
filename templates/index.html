@@ -329,7 +329,7 @@ function loadAnalytic() {
       var barW = maxAmt > 0 ? (r.amount / maxAmt * 100).toFixed(1) : 0;
       return '<div class="analytic-bar-item">' +
         '<div class="analytic-bar-name" title="' + r.analytic + '">' + r.analytic + '</div>' +
-        '<div class="analytic-bar-value ac-color-' + i + '">' + fmt(r.amount) + '</div>' +
+        '<div class="analytic-bar-value">' + fmt(r.amount) + '</div>' +
         '<div class="analytic-bar-pct">' + pct + '% of total</div>' +
         '<div class="analytic-track"><div class="analytic-fill ac-color-' + i + '" style="width:0%" data-w="' + barW + '"></div></div>' +
         '</div>';
