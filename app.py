@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_file, render_template
+from flask import Flask, jsonify, send_file, render_template, request
 from flask_cors import CORS
 import xmlrpc.client
 from datetime import date, datetime
@@ -46,14 +46,29 @@ def odoo_call(uid, model, method, args=[], kwargs={}):
 def index():
     return render_template("index.html")
 
+@app.route("/api/companies")
+def get_companies():
+    uid = get_uid()
+    if not uid:
+        return jsonify({"error": "Auth failed"}), 401
+    companies = odoo_call(uid, "res.company", "search_read",
+        [[]],
+        {"fields": ["id", "name"], "order": "name asc"}
+    )
+    return jsonify(companies or [])
+
 @app.route("/api/summary")
 def get_summary():
     uid = get_uid()
     if not uid:
         return jsonify({"error": "Auth failed"}), 401
     today = date.today().isoformat()
+    domain = [["move_type","=","out_invoice"],["state","=","posted"]]
+    company_id = request.args.get("company_id")
+    if company_id:
+        domain.append(["company_id","=",int(company_id)])
     all_inv = odoo_call(uid, "account.move", "search_read",
-        [[["move_type","=","out_invoice"],["state","=","posted"]]],
+        [domain],
         {"fields":["amount_total","amount_residual","payment_state","invoice_date_due"]}
     )
     total        = sum(i["amount_total"] for i in all_inv)
@@ -75,8 +90,12 @@ def get_invoices():
     uid = get_uid()
     if not uid:
         return jsonify({"error": "Auth failed"}), 401
+    domain = [["move_type","=","out_invoice"],["state","=","posted"]]
+    company_id = request.args.get("company_id")
+    if company_id:
+        domain.append(["company_id","=",int(company_id)])
     invoices = odoo_call(uid, "account.move", "search_read",
-        [[["move_type","=","out_invoice"],["state","=","posted"]]],
+        [domain],
         {"fields":["name","partner_id","invoice_date","invoice_date_due",
                    "amount_total","amount_residual","payment_state","invoice_user_id","company_id"],
          "limit":1000, "order":"invoice_date desc"}
@@ -89,9 +108,13 @@ def get_aging():
     if not uid:
         return jsonify({"error": "Auth failed"}), 401
     today = date.today().isoformat()
+    domain = [["move_type","=","out_invoice"],["state","=","posted"],
+              ["amount_residual",">",0],["invoice_date_due","<",today]]
+    company_id = request.args.get("company_id")
+    if company_id:
+        domain.append(["company_id","=",int(company_id)])
     overdue = odoo_call(uid, "account.move", "search_read",
-        [[["move_type","=","out_invoice"],["state","=","posted"],
-          ["amount_residual",">",0],["invoice_date_due","<",today]]],
+        [domain],
         {"fields":["amount_residual","invoice_date_due"]}
     )
     b1=b2=b3=c1=c2=c3=0

@@ -71,7 +71,10 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
       <div class="header-title">Invoice Dashboard</div>
       <div class="header-sub">Live data from Odoo</div>
     </div>
-    <button class="refresh-btn" onclick="loadAll()">&#x21BB; Refresh</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <select class="filter-select" id="mainCompanyFilter" onchange="loadAll()" style="min-width:200px;font-weight:500;border-color:#1e40af;color:#1e40af"><option value="">All Companies</option></select>
+      <button class="refresh-btn" onclick="loadAll()">&#x21BB; Refresh</button>
+    </div>
   </div>
   <div class="kpi-grid">
     <div class="kpi-card"><div class="kpi-icon">&#128196;</div><div><div class="kpi-label">Total Invoiced</div><div class="kpi-value default" id="kpi-total">...</div><div class="kpi-sub" id="kpi-count">loading</div></div></div>
@@ -92,7 +95,6 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
       </div>
     </div>
     <div class="filters-row">
-      <select class="filter-select" id="companyFilter" onchange="filterTable()"><option value="">All Companies</option></select>
       <select class="filter-select" id="customerFilter" onchange="filterTable()"><option value="">All Customers</option></select>
       <select class="filter-select" id="createdByFilter" onchange="filterTable()"><option value="">All Users</option></select>
       <select class="filter-select" id="statusFilter" onchange="filterTable()">
@@ -111,6 +113,11 @@ tbody td{padding:13px 12px;font-size:13.5px;vertical-align:middle}
 <script>
 var API = '';
 var allInvoices = [];
+
+function getCompanyParam() {
+  var id = document.getElementById('mainCompanyFilter').value;
+  return id ? '?company_id=' + id : '';
+}
 
 function fmt(n) {
   return 'SAR ' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
@@ -142,17 +149,6 @@ function populateCustomers() {
   sel.innerHTML = '<option value="">All Customers</option>' + names.map(function(n) { return '<option>' + n + '</option>'; }).join('');
 }
 
-function populateCompanies() {
-  var sel = document.getElementById('companyFilter');
-  var companies = [];
-  var seen = {};
-  allInvoices.forEach(function(i) {
-    if (i.company && !seen[i.company]) { seen[i.company] = true; companies.push(i.company); }
-  });
-  companies.sort();
-  sel.innerHTML = '<option value="">All Companies</option>' + companies.map(function(c) { return '<option>' + c + '</option>'; }).join('');
-}
-
 function populateCreatedBy() {
   var sel = document.getElementById('createdByFilter');
   var users = [];
@@ -172,14 +168,12 @@ function setDefaultDates() {
 }
 
 function filterTable() {
-  var company = document.getElementById('companyFilter').value;
   var cust = document.getElementById('customerFilter').value;
   var user = document.getElementById('createdByFilter').value;
   var stat = document.getElementById('statusFilter').value;
   var from = document.getElementById('fromDate').value;
   var to = document.getElementById('toDate').value;
   var filtered = allInvoices.filter(function(i) {
-    if (company && i.company !== company) return false;
     if (cust && i.customer !== cust) return false;
     if (user && i.createdBy !== user) return false;
     if (stat && getStatus(i) !== stat) return false;
@@ -204,7 +198,6 @@ function renderTable(data) {
 }
 
 function clearFilters() {
-  document.getElementById('companyFilter').value = '';
   document.getElementById('customerFilter').value = '';
   document.getElementById('createdByFilter').value = '';
   document.getElementById('statusFilter').value = '';
@@ -231,7 +224,7 @@ function exportExcel() {
 }
 
 function loadSummary() {
-  return fetch(API + '/api/summary').then(function(r) { return r.json(); }).then(function(d) {
+  return fetch(API + '/api/summary' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(d) {
     document.getElementById('kpi-total').textContent = fmt(d.total_invoiced);
     document.getElementById('kpi-count').textContent = d.total_invoices + ' invoices';
     document.getElementById('kpi-paid').textContent = fmt(d.total_paid);
@@ -242,7 +235,7 @@ function loadSummary() {
 }
 
 function loadAging() {
-  return fetch(API + '/api/aging').then(function(r) { return r.json(); }).then(function(data) {
+  return fetch(API + '/api/aging' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(data) {
     var max = Math.max.apply(null, data.map(function(d) { return d.amount; }));
     var colors = ['bar-green','bar-orange','bar-red'];
     var html = '';
@@ -260,7 +253,7 @@ function loadAging() {
 }
 
 function loadInvoices() {
-  return fetch(API + '/api/invoices').then(function(r) { return r.json(); }).then(function(data) {
+  return fetch(API + '/api/invoices' + getCompanyParam()).then(function(r) { return r.json(); }).then(function(data) {
     allInvoices = data.map(function(i) {
       return {
         inv: i.name,
@@ -274,7 +267,6 @@ function loadInvoices() {
         payment_state: i.payment_state
       };
     });
-    populateCompanies();
     populateCustomers();
     populateCreatedBy();
     setDefaultDates();
@@ -287,11 +279,20 @@ function loadInvoices() {
 function exportPDF() {
   window.open('http://127.0.0.1:5000/api/export/pdf', '_blank');
 }
+function loadCompanies() {
+  return fetch(API + '/api/companies').then(function(r) { return r.json(); }).then(function(data) {
+    var sel = document.getElementById('mainCompanyFilter');
+    sel.innerHTML = '<option value="">All Companies</option>' + data.map(function(c) {
+      return '<option value="' + c.id + '">' + c.name + '</option>';
+    }).join('');
+  }).catch(function(e) { console.error('Companies error', e); });
+}
+
 function loadAll() {
   Promise.all([loadSummary(), loadAging(), loadInvoices()]);
 }
 
-loadAll();
+loadCompanies().then(function() { loadAll(); });
 </script>
 </body>
 </html>
